@@ -27,6 +27,9 @@ async function startServer() {
       console.log(`   - POST ${config.api.prefix}/auth/institute/register`);
       console.log(`   - POST ${config.api.prefix}/auth/institute/login`);
       console.log(`   - GET  ${config.api.prefix}/auth/institute/profile`);
+      console.log(`   - POST ${config.api.prefix}/auth/student/register`);    // ✅ Added
+      console.log(`   - POST ${config.api.prefix}/auth/student/login`);       // ✅ Added
+      console.log(`   - GET  ${config.api.prefix}/auth/student/profile`);     // ✅ Added
       console.log(`   - GET  /health`);
     });
 

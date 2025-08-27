@@ -13,18 +13,29 @@ const API = axios.create({
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || 'institute_token';
 const USER_DATA_KEY = import.meta.env.VITE_USER_DATA_KEY || 'institute_data';
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token (Admin requests only)
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // ✅ FIXED: Only add institute token for admin routes
+    if (config.url?.includes('/auth/institute') || config.url?.includes('/institute')) {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    
+    // ✅ FIXED: Add student token for student routes
+    if (config.url?.includes('/auth/student')) {
+      const studentToken = localStorage.getItem('student_token');
+      if (studentToken) {
+        config.headers.Authorization = `Bearer ${studentToken}`;
+      }
     }
     
     // Add timestamp for debugging
     console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
       timestamp: new Date().toISOString(),
-      hasToken: !!token
+      hasToken: !!config.headers.Authorization
     });
     
     return config;
@@ -53,14 +64,24 @@ API.interceptors.response.use(
       const { status, data } = error.response;
       
       if (status === 401) {
-        // Unauthorized - clear storage and redirect
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_DATA_KEY);
-        
-        // Only redirect if not already on login/register pages
-        if (!window.location.pathname.includes('/login') && 
-            !window.location.pathname.includes('/register')) {
-          window.location.href = '/login';
+        // ✅ IMPROVED: Handle unauthorized for both admin and student
+        if (error.config.url?.includes('/auth/student')) {
+          localStorage.removeItem('student_token');
+          localStorage.removeItem('student_data');
+          
+          if (!window.location.pathname.includes('/student/login') && 
+              !window.location.pathname.includes('/student/register')) {
+            window.location.href = '/student/login';
+          }
+        } else {
+          // Admin unauthorized
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_DATA_KEY);
+          
+          if (!window.location.pathname.includes('/login') && 
+              !window.location.pathname.includes('/register')) {
+            window.location.href = '/login';
+          }
         }
       }
       
@@ -88,14 +109,14 @@ API.interceptors.response.use(
   }
 );
 
-// Authentication API calls
+// Authentication API calls (Institute Admin)
 export const authAPI = {
   register: (data) => API.post('/auth/institute/register', data),
   login: (data) => API.post('/auth/institute/login', data),
   getProfile: () => API.get('/auth/institute/profile'),
 };
 
-// Utility functions for token management
+// Utility functions for admin token management
 export const authUtils = {
   // Store authentication data
   setAuthData: (token, instituteData) => {
@@ -123,6 +144,82 @@ export const authUtils = {
     const token = localStorage.getItem(TOKEN_KEY);
     return !!token;
   }
+};
+
+// ✅ FIXED: Student Authentication API calls
+export const studentAPI = {
+  register: (data) => API.post('/auth/student/register', data),
+  login: (data) => API.post('/auth/student/login', data),
+  
+  // ✅ FIXED: Custom profile call with explicit token handling
+  getProfile: () => {
+    const token = localStorage.getItem('student_token');
+    console.log('🔍 Making student profile request with token:', !!token);
+    
+    return axios.get('http://localhost:5000/api/v1/auth/student/profile', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    }).then(response => {
+      console.log('✅ Student profile loaded:', response.data);
+      return response.data;
+    }).catch(error => {
+      console.error('❌ Student profile error:', error);
+      throw error;
+    });
+  }
+};
+
+// Utility functions for student authentication
+export const studentAuthUtils = {
+  // Store student authentication data
+  setStudentAuthData: (token, studentData) => {
+    console.log('💾 Storing student auth data:', { hasToken: !!token, hasData: !!studentData });
+    localStorage.setItem('student_token', token);
+    localStorage.setItem('student_data', JSON.stringify(studentData));
+  },
+  
+  // Get stored student token
+  getStudentToken: () => localStorage.getItem('student_token'),
+  
+  // Get stored student data
+  getStudentData: () => {
+    const data = localStorage.getItem('student_data');
+    return data ? JSON.parse(data) : null;
+  },
+  
+  // Clear student authentication data
+  clearStudentAuthData: () => {
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('student_data');
+  },
+  
+  // Check if student is authenticated
+  isStudentAuthenticated: () => {
+    const token = localStorage.getItem('student_token');
+    const data = localStorage.getItem('student_data');
+    const isAuth = !!(token && data);
+    console.log('🔍 Student auth check:', { hasToken: !!token, hasData: !!data, isAuthenticated: isAuth });
+    return isAuth;
+  }
+};
+
+// Institute Management APIs
+export const instituteAPI = {
+  // Dashboard stats
+  getDashboardStats: () => API.get('/institute/dashboard-stats'),
+  
+  // Student management
+  getStudents: (params) => API.get('/institute/students', { params }),
+  verifyStudent: (studentId, isVerified) => 
+    API.put(`/institute/students/${studentId}/verify`, { isVerified }),
+  
+  // Existing institute auth functions...
+  register: (userData) => API.post('/auth/institute/register', userData),
+  login: (userData) => API.post('/auth/institute/login', userData),
+  getProfile: () => API.get('/auth/institute/profile')
 };
 
 // Health check

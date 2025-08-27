@@ -115,6 +115,13 @@ const studentSchema = new mongoose.Schema({
   },
   
   // Authentication Information (for student login)
+
+  password: {
+    type: String,
+    required: true,
+    select: false // Don't include in queries by default
+  },
+
   isVerified: {
     type: Boolean,
     default: false

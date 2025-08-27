@@ -4,55 +4,34 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './config/environment.js';
 
-// Import routes
+
+// Route imports
 import instituteAuthRoutes from './routes/auth/institute.js';
+import studentAuthRoutes from './routes/auth/student.js'; // ✅ MAKE SURE THIS IS HERE
+import instituteManagementRoutes from './routes/institute/studentManagement.js';
 
 const app = express();
 
-// Security Middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
-// CORS Configuration
-app.use(cors({
-  origin: config.cors.origin,
-  credentials: config.cors.credentials,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-app.use(limiter);
-
-// Body parsing middleware
+// Middleware
+app.use(helmet());
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Request logging in development
-if (config.server.environment === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
-    next();
-  });
-}
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000
+});
+app.use(limiter);
 
 // API Routes
 const apiPrefix = config.api.prefix;
 
 // Authentication routes
 app.use(`${apiPrefix}/auth/institute`, instituteAuthRoutes);
+app.use(`${apiPrefix}/auth/student`, studentAuthRoutes);    // ✅ MAKE SURE THIS IS HERE
+app.use(`${apiPrefix}/institute`, instituteManagementRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -74,24 +53,28 @@ app.get('/', (req, res) => {
   });
 });
 
-// 404 handler for undefined routes (FIXED)
+// 404 handler (MUST be last)
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
-    path: req.originalUrl
+    path: req.path
   });
 });
 
-// Global error handler
-app.use((error, req, res, next) => {
-  console.error('Global error handler:', error);
+// Global error handling middleware (MUST be last)
+app.use((err, req, res, next) => {
+  console.error('🚨 Unhandled Error:', err);
+  console.error('🚨 Error Stack:', err.stack);
   
-  res.status(error.status || 500).json({
+  res.status(err.status || 500).json({
     success: false,
-    message: error.message || 'Internal server error',
-    ...(config.server.environment === 'development' && { stack: error.stack })
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack,
+      details: err 
+    })
   });
-});
+}); 
 
 export default app;
