@@ -1,0 +1,7 @@
+# Make sure .gitignore exists with this content:
+node_modules/
+.env
+*.log
+.DS_Store
+uploads/
+
