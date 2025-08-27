@@ -7,10 +7,6 @@ import { config } from './config/environment.js';
 // Import routes
 import instituteAuthRoutes from './routes/auth/institute.js';
 
-/**
- * Main Express Application Configuration
- * Sets up middleware, security, and routes
- */
 const app = express();
 
 // Security Middleware
@@ -28,8 +24,8 @@ app.use(cors({
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -78,8 +74,8 @@ app.get('/', (req, res) => {
   });
 });
 
-// 404 handler for undefined routes
-app.use('*', (req, res) => {
+// 404 handler for undefined routes (FIXED)
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',

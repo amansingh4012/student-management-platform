@@ -82,9 +82,6 @@ const instituteSchema = new mongoose.Schema({
   timestamps: true // createdAt, updatedAt
 });
 
-// Create indexes for better performance
-instituteSchema.index({ instituteCode: 1 });
-instituteSchema.index({ email: 1 });
-instituteSchema.index({ status: 1 });
+
 
 export default mongoose.model('Institute', instituteSchema);
